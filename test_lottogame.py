@@ -1,78 +1,197 @@
 from modules.lottogame import LottoGame, KegsBag, LottoPlayer, LottoCard 
-import os, shutil
+import unittest, pytest
+from main import play_lotto_game
 
-def test_kegsbag():
-    kegs_bag = KegsBag()
-    kegs_initial = kegs_bag.kegs[:]
-    pulled_keg = kegs_bag.pull_keg()
-    assert pulled_keg == kegs_initial[0]
-    assert kegs_bag.kegs == kegs_initial[1:]
-    assert kegs_bag.count() == 89
-    for _ in range(90):
-        kegs_bag.pull_keg()
-    assert kegs_bag.pull_keg() == -1
-    try:
-        KegsBag(kegs_count=10)
-    except Exception:
-        assert True
-    else:
-        assert False
+class TestKegsBag(unittest.TestCase):
+    def setUp(self):
+        self.kegs_bag = KegsBag()
+        self.kegs_initial = self.kegs_bag.kegs[:]
+    
+    def test_pulling_keg(self):
+        pulled_keg = self.kegs_bag.pull_keg()
+        self.assertEqual(pulled_keg, self.kegs_initial[0], msg='Получен некорректный номер бочонка')
+        self.assertListEqual(self.kegs_bag.kegs, self.kegs_initial[1:], msg='Некорректное изменение содержимого мешка')
+        self.assertEqual(self.kegs_bag.count(), 89, msg='Некорректное изменение количества элементов в мешке')
 
-def test_lottocard():
-    lotto_card = LottoCard()
-    keg_numbers_initial = lotto_card.keg_numbers[:]
-    lotto_card.cross_out(keg_numbers_initial[0])
-    assert lotto_card.keg_numbers == keg_numbers_initial[1:]
-    assert lotto_card.has_keg_number(keg_numbers_initial[0]) == False
-    assert lotto_card.ROW_LENGTH == 9
-    assert not lotto_card.cross_out(142)
-    try:
-        LottoCard(kegs_count=10)
-    except Exception:
-        assert True
-    else:
-        assert False
+    def test_empty_bag(self):
+        for _ in range(91):
+            self.kegs_bag.pull_keg()
+        self.assertEqual(self.kegs_bag.pull_keg(), -1)
 
-def test_lottoplayer():
-    lotto_card = LottoCard()
-    lotto_player = LottoPlayer('TestPlayer', lotto_card, is_bot=True)
-    assert lotto_player.name == 'TestPlayer'
-    assert lotto_player.lotto_card == lotto_card
-    assert lotto_player.is_bot == True
+    def test_low_kegs_exception(self):
+        with self.assertRaises(ValueError):
+            KegsBag(kegs_count=10)
 
-def test_lottogame():
-    lotto_game = LottoGame(['player1', 'player2'])
+class TestLottoCard():
+    def setup(self):
+        self.lotto_card = LottoCard()
+        self.keg_numbers_initial = self.lotto_card.keg_numbers[:]
 
-    assert lotto_game.winner == None
-    assert lotto_game.stalemate_finishers == None
-    assert lotto_game.bot_stalemate_finishers == None
-    assert lotto_game.endgame_result_text == None
-    assert lotto_game.is_over() == False
+    def test_show_card(self):
+        card_display_text = self.lotto_card.show_card()
+        assert card_display_text.startswith('----')
+        assert card_display_text.endswith('----')
 
-    kegs_initial = lotto_game.kegs_bag.kegs[:]
-    pulled_keg_number = lotto_game.kegs_bag.pull_keg()
-    assert pulled_keg_number == kegs_initial[0]
-    assert lotto_game.kegs_bag.kegs == kegs_initial[1:]
-    assert lotto_game.kegs_bag.count() == 89
+    def test_has_keg_number(self):
+        assert self.lotto_card.has_keg_number(100) == False
+        keg_number_from_card = self.lotto_card.keg_numbers[0]
+        assert self.lotto_card.has_keg_number(keg_number_from_card) ==True
 
-    player1 = lotto_game.players[0]
-    assert player1.name == 'player1'
-    wrong_choice = 'n' if player1.lotto_card.has_keg_number(pulled_keg_number) else 'y'
-    lotto_game.make_move(player1, wrong_choice, pulled_keg_number)
-    assert player1 not in lotto_game.players_in_game
+    def test_crossing_out(self):
+        self.lotto_card.cross_out(self.keg_numbers_initial[0])
+        assert self.lotto_card.keg_numbers == self.keg_numbers_initial[1:]
+        assert self.lotto_card.has_keg_number(self.keg_numbers_initial[0]) == False
+        assert not self.lotto_card.cross_out(142)
 
-    player2 = lotto_game.players[1]
-    assert player2.name == 'player2'
-    right_choice = 'y' if player2.lotto_card.has_keg_number(pulled_keg_number) else 'n'
-    lotto_game.make_move(player2, right_choice, pulled_keg_number)
-    assert player2 in lotto_game.players_in_game
+    def test_low_kegs_exception(self):
+        with pytest.raises(ValueError):
+            LottoCard(kegs_count=10)
 
-    lotto_game.update_game_state(lotto_game.kegs_bag.pull_keg())
-    assert lotto_game.winner == player2
-    assert lotto_game.endgame_result_text == 'Победил игрок player2!!!'
+class TestLottoPlayer(unittest.TestCase):
+    def setUp(self):
+        self.lotto_card = LottoCard()
 
-    lotto_game2 = LottoGame(['bot1', 'bot2'])
-    while not lotto_game2.is_over():
-        pulled_keg_number = lotto_game2.pull_keg_from_bag()
-        lotto_game2.play_round(pulled_keg_number)
-    assert lotto_game2.endgame_result_text
+    def tearDown(self):
+        del(self.lotto_card)
+
+    def test_bot(self):
+        lotto_player = LottoPlayer('TestBot', self.lotto_card, is_bot=True)
+        self.assertEqual(lotto_player.name, 'TestBot')
+        self.assertEqual(lotto_player.lotto_card, self.lotto_card)
+        self.assertTrue(lotto_player.is_bot)
+    
+    def test_player(self):
+        lotto_player = LottoPlayer('TestPlayer', self.lotto_card, is_bot=False)
+        self.assertEqual(lotto_player.name, 'TestPlayer')
+        self.assertEqual(lotto_player.lotto_card, self.lotto_card)
+        self.assertFalse(lotto_player.is_bot)
+
+class TestLottoGame():
+    def setup(self):
+        self.lotto_game = LottoGame(['player1', 'player2'])
+        self.no_kegs_code_number = -1
+
+    def teardown(self):
+        del(self.lotto_game)
+
+    def test_init_game(self):
+        assert self.lotto_game.winner == None
+        assert self.lotto_game.stalemate_finishers == None
+        assert self.lotto_game.bot_stalemate_finishers == None
+        assert self.lotto_game.endgame_result_text == None
+        assert self.lotto_game.is_over() == False
+
+    def test_pulling_keg(self):
+        kegs_initial = self.lotto_game.kegs_bag.kegs[:]
+        pulled_keg_number = self.lotto_game.pull_keg_from_bag()
+        assert pulled_keg_number == kegs_initial[0], 'Некорректно извлечен бочонок'
+        assert self.lotto_game.kegs_bag.count() == 89, 'Количество бочонков в мешке не изменилось после извлечения'
+        assert self.lotto_game.kegs_bag.kegs == kegs_initial[1:]
+
+    def test_print_game_info(self):
+        assert self.lotto_game.get_welcome_text().startswith('\n**** Добро пожаловать в Lotto Game! ****')
+        assert self.lotto_game.get_player_cards_text().startswith('\nКарточка игрока ')
+
+    def test_losing_player(self):
+        pulled_keg_number = self.lotto_game.pull_keg_from_bag()
+        player1 = self.lotto_game.players[0]
+        assert player1.name == 'player1', 'Порядок списка игроков не соответствует ожидаемому'
+        wrong_choice = 'n' if player1.lotto_card.has_keg_number(pulled_keg_number) else 'y'
+        self.lotto_game.make_move(player1, wrong_choice, pulled_keg_number)
+        assert player1 not in self.lotto_game.players_in_game
+
+    def test_wrong_answer(self):
+        pulled_keg_number = self.lotto_game.pull_keg_from_bag()
+        player1 = self.lotto_game.players[0]
+        assert player1.name == 'player1', 'Порядок списка игроков не соответствует ожидаемому'
+        wrong_answer = 'abcd'
+        with pytest.raises(ValueError):
+            self.lotto_game.make_move(player1, wrong_answer, pulled_keg_number)
+
+    def test_keeping_player(self):
+        pulled_keg_number = self.lotto_game.pull_keg_from_bag()
+        player2 = self.lotto_game.players[1]
+        assert player2.name == 'player2', 'Порядок списка игроков не соответствует ожидаемому'
+        right_choice = 'y' if player2.lotto_card.has_keg_number(pulled_keg_number) else 'n'
+        self.lotto_game.make_move(player2, right_choice, pulled_keg_number)
+        assert player2 in self.lotto_game.players_in_game
+
+    def test_winning_game(self):
+        pulled_keg_number = self.lotto_game.pull_keg_from_bag()
+
+        player1 = self.lotto_game.players[0]
+        wrong_choice = 'n' if player1.lotto_card.has_keg_number(pulled_keg_number) else 'y'
+        self.lotto_game.make_move(player1, wrong_choice, pulled_keg_number)
+        player2 = self.lotto_game.players[1]
+        right_choice = 'y' if player2.lotto_card.has_keg_number(pulled_keg_number) else 'n'
+        self.lotto_game.make_move(player2, right_choice, pulled_keg_number)
+
+        self.lotto_game.update_game_state(self.no_kegs_code_number)
+        assert self.lotto_game.winner == player2
+        assert self.lotto_game.endgame_result_text == 'Победил игрок player2!!!'
+        assert self.lotto_game.is_over() == True
+
+    def test_no_winners(self):
+        lotto_game = LottoGame(['player1', 'player2'], kegs_count=15)
+        pulled_keg_number = lotto_game.pull_keg_from_bag()
+        for player in lotto_game.players:
+            wrong_choice = 'n' if player.lotto_card.has_keg_number(pulled_keg_number) else 'y'
+            lotto_game.make_move(player, wrong_choice, pulled_keg_number)
+        lotto_game.update_game_state(lotto_game.pull_keg_from_bag())
+        assert lotto_game.winner == None
+        assert lotto_game.endgame_result_text == 'Нет победивших'
+        assert lotto_game.is_over() == True
+
+    def test_playing_bots(self):
+        lotto_game_bots = LottoGame(['bot1', 'bot2'])
+        bot1 = lotto_game_bots.players[0]
+        bot2 = lotto_game_bots.players[1]
+        while not lotto_game_bots.is_over():
+            pulled_keg_number = lotto_game_bots.pull_keg_from_bag()
+            lotto_game_bots.make_move(bot1, 'y' if bot1.lotto_card.has_keg_number(pulled_keg_number) else 'n', pulled_keg_number)
+            lotto_game_bots.make_move(bot2, 'y' if bot2.lotto_card.has_keg_number(pulled_keg_number) else 'n', pulled_keg_number)
+            lotto_game_bots.update_game_state(pulled_keg_number)
+        assert lotto_game_bots.endgame_result_text
+
+    def test_stalemate_empty_finishers(self):
+        player1 = self.lotto_game.players[0]
+        player1.lotto_card.keg_numbers = []
+        player2 = self.lotto_game.players[1]
+        player2.lotto_card.keg_numbers = []
+        pulled_keg_number = self.lotto_game.pull_keg_from_bag()
+        self.lotto_game.update_game_state(pulled_keg_number)
+        assert self.lotto_game.stalemate_finishers
+
+    def test_stalemate_no_kegs_bots(self):
+        lotto_game_bots = LottoGame(['bot1', 'bot2', 'bot3'])
+        lotto_game_bots.update_game_state(self.no_kegs_code_number)
+        assert lotto_game_bots.winner == None
+        assert lotto_game_bots.bot_stalemate_finishers == lotto_game_bots.players
+        assert lotto_game_bots.is_over() == True
+
+    def test_stalemate_no_kegs_players(self):
+        self.lotto_game.update_game_state(self.no_kegs_code_number)
+        assert self.lotto_game.winner == None
+        assert self.lotto_game.stalemate_finishers == self.lotto_game.players
+        assert self.lotto_game.is_over() == True  
+
+    def test_one_player(self):
+        lotto_game = LottoGame(['player'])
+        player = lotto_game.players[0]
+        while not lotto_game.is_over():
+            pulled_keg_number = lotto_game.pull_keg_from_bag()
+            right_choice = 'y' if player.lotto_card.has_keg_number(pulled_keg_number) else 'n'
+            lotto_game.make_move(player, right_choice, pulled_keg_number)
+            lotto_game.update_game_state(pulled_keg_number)
+        assert lotto_game.winner == player
+
+    def test_no_kegs_one_bot(self):
+        lotto_game = LottoGame(['bot1'])
+        bot1 = lotto_game.players[0]
+        lotto_game.update_game_state(self.no_kegs_code_number)
+        assert lotto_game.winner == bot1
+        assert lotto_game.is_over() == True
+
+def test_play_lotto_game():
+    play_lotto_game(test_players_count=1)
+    play_lotto_game(test_players_count=2)

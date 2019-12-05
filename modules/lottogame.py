@@ -3,7 +3,7 @@ import random
 class KegsBag():
     def __init__(self, kegs_count=90):
         if kegs_count<15:
-            raise Exception('Бочонков должно быть не меньше 15-ти!')
+            raise ValueError('Бочонков должно быть не меньше 15-ти!')
         self.kegs = list(range(1, kegs_count+1))
         random.shuffle(self.kegs)
     
@@ -16,7 +16,7 @@ class KegsBag():
 class LottoCard():
     def __init__(self, kegs_count=90, row_length=9):
         if kegs_count<15:
-            raise Exception('Бочонков должно быть не меньше 15-ти!')
+            raise ValueError('Бочонков должно быть не меньше 15-ти!')
         self.ROW_LENGTH = row_length
         keg_numbers = []
         while len(set(keg_numbers))<15:
@@ -87,22 +87,24 @@ class LottoGame():
     def is_over(self):
         return any([self.winner, self.stalemate_finishers, self.bot_stalemate_finishers, self.endgame_result_text])
 
-    def print_welcome(self):
-        print()
-        print('**** Добро пожаловать в Lotto Game! ****')
-        print('Правила таковы:')
-        print(f"  Есть мешок с бочонками, в них числа (от 1-го до {self.kegs_count})")
-        print(f"  У каждого игрока есть карточки с {len(self.players[0].lotto_card.keg_numbers)} числами")
-        print("  В каждом раунде достается бочонок с числом, игрокам положено вычеркнуть цифру если она есть в карточке")
-        print("  Тот игрок, кто решит вычеркнуть число которого нет в его карточке, выбывает из игры")
-        print("  Тот игрок, кто решит не вычеркнуть число которое есть в его карточке, выбывает из игры")
-        print("  Тот игрок, кто вычеркнет все числа из карточки первым, либо останется последним в коллективной игре, выигрывает")
-        print()
+    def get_welcome_text(self):
+        text = '\n'
+        text+='**** Добро пожаловать в Lotto Game! ****\n'
+        text+='Правила таковы:\n'
+        text+=f"  Есть мешок с бочонками, в них числа (от 1-го до {self.kegs_count})\n"
+        text+=f"  У каждого игрока есть карточки с {len(self.players[0].lotto_card.keg_numbers)} числами\n"
+        text+="  В каждом раунде достается бочонок с числом, игрокам положено вычеркнуть цифру если она есть в карточке\n"
+        text+="  Тот игрок, кто решит вычеркнуть число которого нет в его карточке, выбывает из игры\n"
+        text+="  Тот игрок, кто решит не вычеркнуть число которое есть в его карточке, выбывает из игры\n"
+        text+="  Тот игрок, кто вычеркнет все числа из карточки первым, либо останется последним в коллективной игре, выигрывает\n"
+        return text
 
-    def print_player_cards(self):
+    def get_player_cards_text(self):
+        text = '\n'
         for player in self.players_in_game:
-            print(f'Карточка игрока {player.name}:')
-            print(player.lotto_card.show_card())
+            text+=f'Карточка игрока {player.name}:\n'
+            text+=player.lotto_card.show_card()+'\n'
+        return text
 
     def pull_keg_from_bag(self):
         return self.kegs_bag.pull_keg()
@@ -150,25 +152,6 @@ class LottoGame():
             else:
                 result_text = f'{player.name} не вычеркнул число {pulled_keg_number}, которого и не было в карточке.'
         else:
-            raise Exception('Некорректный ответ')
+            raise ValueError('Некорректный ответ')
 
         return result_text
-
-    def play_round(self, pulled_keg_number):
-        self.update_game_state(pulled_keg_number)
-        if self.is_over():
-            return
-
-        print(f'Новый бочонок: {pulled_keg_number} (осталось {self.kegs_bag.count()})\n')
-
-        for player in self.players_in_game:
-            if player.is_bot:
-                player_choice = 'y' if player.lotto_card.has_keg_number(pulled_keg_number) else 'n'
-                # player_choice = 'y' if random.random()>0.5 else 'n'
-            else:
-                player_choice =''
-                while player_choice.lower() not in ['y', 'n']:
-                    player_choice = input(f'{player.name}, зачеркнуть цифру {pulled_keg_number} из вашей карточки? (y/n): ')
-            result_text = self.make_move(player, player_choice, pulled_keg_number)
-            print(result_text)
-            print()
