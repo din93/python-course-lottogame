@@ -22,15 +22,15 @@ def play_lotto_game(test_players_count=1):
     while not game.is_over():
         pulled_keg_number = game.pull_keg_from_bag()
         print(game.get_player_cards_text())
-        print(f'Новый бочонок: {pulled_keg_number} (осталось {game.kegs_bag.count()})\n')
+        print(f'Новый бочонок: {pulled_keg_number} (осталось {len(game.kegs_bag)})\n')
         for player in game.players_in_game:
             if player.is_bot:
-                player_choice = 'y' if player.lotto_card.has_keg_number(pulled_keg_number) else 'n'
+                player_choice = 'y' if pulled_keg_number in player.lotto_card else 'n'
                 # player_choice = 'y' if random.random()>0.5 else 'n'
             else:
                 player_choice = ''
                 while player_choice.lower() not in ['y', 'n']:
-                    right_choice = 'y' if player.lotto_card.has_keg_number(pulled_keg_number) else 'n'
+                    right_choice = 'y' if pulled_keg_number in player.lotto_card else 'n'
                     player_choice = input(f'{player.name}, зачеркнуть цифру {pulled_keg_number} из вашей карточки? (y/n): ') if IS_MAIN else right_choice
             result_text = game.make_move(player, player_choice, pulled_keg_number)
             print(result_text)

@@ -10,8 +10,20 @@ class KegsBag():
     def pull_keg(self):
         return -1 if len(self.kegs)==0 else self.kegs.pop(0)
     
-    def count(self):
+    def __len__(self):
         return len(self.kegs)
+
+    def __str__(self):
+        return f'Bag of {len(self.kegs)} kegs'
+
+    def __eq__(self, other_kegsbag):
+        return self.kegs == other_kegsbag.kegs
+
+    def __getitem__(self, index):
+        return self.kegs[index]
+
+    def __contains__(self, kegnumber):
+        return kegnumber in self.kegs
 
 class LottoCard():
     def __init__(self, kegs_count=90, row_length=9):
@@ -36,7 +48,10 @@ class LottoCard():
                 row.insert(insert_index, ' ')
         self.card_rows = card_rows
 
-    def show_card(self):
+    def __len__(self):
+        return len(self.keg_numbers)
+
+    def __str__(self):
         ROW_LENGTH = self.ROW_LENGTH
         divider = '-'*(ROW_LENGTH*2 + ROW_LENGTH-1)
         card_result = divider+'\n'
@@ -50,11 +65,14 @@ class LottoCard():
         card_result += divider
         return card_result
 
-    def has_keg_number(self, keg_number):
-        for row in self.card_rows:
-            if keg_number in row:
-                return True
-        return False
+    def __eq__(self, another):
+        return self.card_rows == another.card_rows
+
+    def __getitem__(self, index):
+        return self.card_rows[index]
+
+    def __contains__(self, kegnumber):
+        return kegnumber in self.keg_numbers
     
     def cross_out(self, keg_number):
         for rindex, row in enumerate(self.card_rows):
@@ -69,6 +87,12 @@ class LottoPlayer():
         self.name = name
         self.lotto_card = lotto_card
         self.is_bot = is_bot
+
+    def __str__(self):
+        return f"{'Бот' if self.is_bot else 'Игрок'} {self.name}\n{str(self.lotto_card)}"
+
+    def __eq__(self, another):
+        return self.is_bot==another.is_bot and self.name==another.name and self.lotto_card==another.lotto_card
 
 class LottoGame():
     def __init__(self, player_names, kegs_count=90):
@@ -103,7 +127,7 @@ class LottoGame():
         text = '\n'
         for player in self.players_in_game:
             text+=f'Карточка игрока {player.name}:\n'
-            text+=player.lotto_card.show_card()+'\n'
+            text+=str(player.lotto_card)+'\n'
         return text
 
     def pull_keg_from_bag(self):
@@ -146,7 +170,7 @@ class LottoGame():
             else:
                 result_text = f'{player.name} вычеркнул число {pulled_keg_number} из своей карточки.'
         elif player_choice.lower() == 'n':
-            if player.lotto_card.has_keg_number(pulled_keg_number):
+            if pulled_keg_number in player.lotto_card:
                 result_text = f'{player.name} не вычеркнул число {pulled_keg_number}, записанное в карточке!\nИгра окончена для {player.name}.'
                 self.players_in_game = list(filter(lambda x: x is not player, self.players_in_game))
             else:
@@ -155,3 +179,14 @@ class LottoGame():
             raise ValueError('Некорректный ответ')
 
         return result_text
+    
+    def __str__(self):
+        title_text = f"Игра Лото на {self.kegs_count} бочонков ({len(self.kegs_bag)} осталось)"
+        players_text = f"{len(self.players)} игроков: {', '.join([player.name for player in self.players])}"
+        gamestate_text = f"В игре сейчас {len(self.players_in_game)} игроков: {', '.join([player.name for player in self.players_in_game])}"
+        if self.endgame_result_text:
+            gamestate_text = self.endgame_result_text
+        return f"{title_text}\n{players_text}\n{gamestate_text}"
+
+    def __eq__(self, another):
+        return self.players==another.players and self.players_in_game==another.players_in_game and self.kegs_count==another.kegs_count and self.kegs_bag==another.kegs_bag
